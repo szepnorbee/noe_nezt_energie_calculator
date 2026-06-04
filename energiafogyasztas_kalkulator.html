@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Áramfogyasztás Kalkulátor – E.ON / Netz NÖ 2026</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #f5f4f0;
+    --surface: #ffffff;
+    --surface2: #f0efe9;
+    --border: rgba(0,0,0,0.10);
+    --border2: rgba(0,0,0,0.18);
+    --text: #1a1a18;
+    --text2: #5a5a54;
+    --text3: #999890;
+    --blue: #378ADD;
+    --blue-bg: #e6f1fb;
+    --blue-text: #0c447c;
+    --green: #1D9E75;
+    --green-bg: #e1f5ee;
+    --green-text: #085041;
+    --amber: #BA7517;
+    --amber-bg: #faeeda;
+    --amber-text: #633806;
+    --radius: 10px;
+    --radius-sm: 7px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1a;
+      --surface: #242422;
+      --surface2: #2e2e2b;
+      --border: rgba(255,255,255,0.10);
+      --border2: rgba(255,255,255,0.20);
+      --text: #e8e7e0;
+      --text2: #9a9990;
+      --text3: #5a5a54;
+      --blue-bg: #0c2340;
+      --blue-text: #85b7eb;
+      --green-bg: #04201a;
+      --green-text: #5dcaa5;
+      --amber-bg: #2a1800;
+      --amber-text: #ef9f27;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  .app {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 1.5rem 1rem 4rem;
+  }
+  .header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    gap: 1rem;
+  }
+  .header h1 { font-size: 22px; font-weight: 600; color: var(--text); }
+  .header p { font-size: 13px; color: var(--text2); margin-top: 3px; }
+  .badge {
+    font-size: 11px; font-weight: 500;
+    padding: 3px 10px; border-radius: 20px;
+    background: var(--blue-bg); color: var(--blue-text);
+    white-space: nowrap; flex-shrink: 0; margin-top: 4px;
+  }
+  .tabs {
+    display: flex; gap: 6px; margin-bottom: 1.25rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0;
+  }
+  .tab {
+    padding: 7px 16px; border: none; background: transparent;
+    color: var(--text2); font-size: 13px; cursor: pointer;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+    border-radius: 0; font-family: inherit;
+    transition: color .15s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--text); border-bottom-color: var(--blue); font-weight: 500; }
+  .card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+    margin-bottom: 12px;
+  }
+  .section-label {
+    font-size: 11px; font-weight: 600; letter-spacing: .07em;
+    text-transform: uppercase; color: var(--text2);
+    margin-bottom: 10px;
+  }
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px; margin-bottom: 14px;
+  }
+  .metric {
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    padding: .75rem 1rem;
+  }
+  .metric-label { font-size: 12px; color: var(--text2); margin-bottom: 4px; }
+  .metric-value { font-size: 21px; font-weight: 600; color: var(--text); line-height: 1.1; }
+  .metric-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+  .upload-area {
+    border: 1.5px dashed var(--border2);
+    border-radius: var(--radius);
+    padding: 2.5rem 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+    margin-bottom: 12px;
+  }
+  .upload-area:hover, .upload-area.dragover {
+    background: var(--blue-bg);
+    border-color: var(--blue);
+  }
+  .upload-icon {
+    font-size: 36px; margin-bottom: 10px;
+    display: block; color: var(--text2);
+  }
+  .upload-title { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
+  .upload-sub { font-size: 13px; color: var(--text2); }
+  input[type="file"] { display: none; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  .field label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 5px; }
+  .field input[type="number"] {
+    width: 100%; padding: 7px 10px;
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius-sm);
+    background: var(--surface2);
+    color: var(--text); font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color .15s;
+  }
+  .field input[type="number"]:focus { border-color: var(--blue); }
+  .info-note {
+    font-size: 12px; color: var(--text2);
+    padding: 8px 10px; border-radius: var(--radius-sm);
+    background: var(--surface2);
+    margin-top: 8px;
+    display: flex; gap: 6px; align-items: flex-start;
+  }
+  .info-note span { flex-shrink: 0; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 18px; border-radius: var(--radius-sm);
+    border: 0.5px solid var(--border2);
+    background: var(--surface2); color: var(--text);
+    font-size: 13px; cursor: pointer; font-family: inherit;
+    transition: background .12s;
+  }
+  .btn:hover { background: var(--border); }
+  .btn-primary {
+    background: var(--blue); border-color: var(--blue);
+    color: #fff;
+  }
+  .btn-primary:hover { background: #185fa5; }
+  .btn-sm { padding: 5px 12px; font-size: 12px; }
+  .row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 0; border-bottom: 0.5px solid var(--border);
+    font-size: 14px; gap: 1rem;
+  }
+  .row:last-child { border-bottom: none; }
+  .row.total { font-weight: 600; }
+  .row-label { color: var(--text2); }
+  .row-value { font-weight: 500; color: var(--text); }
+  .code-block {
+    background: var(--surface2);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 12px; color: var(--text2);
+    line-height: 1.8; margin-bottom: 8px;
+  }
+  .period-nav {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+  }
+  .period-nav .nav-btn {
+    width: 30px; height: 30px;
+    border: 0.5px solid var(--border2); border-radius: var(--radius-sm);
+    background: var(--surface2); cursor: pointer;
+    color: var(--text2); font-size: 16px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .period-nav .nav-btn:hover { background: var(--border); }
+  .period-nav .period-label {
+    flex: 1; text-align: center; font-size: 14px; font-weight: 500;
+  }
+  .view-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+  .view-tab {
+    padding: 4px 10px; font-size: 12px;
+    border: 0.5px solid var(--border); border-radius: var(--radius-sm);
+    background: transparent; cursor: pointer; color: var(--text2);
+    font-family: inherit;
+  }
+  .view-tab.active { background: var(--surface2); color: var(--text); border-color: var(--border2); font-weight: 500; }
+  .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+  .chart-wrap { position: relative; width: 100%; height: 240px; }
+  
+  #period-totals {
+    text-align: center; font-size: 13px; font-weight: 500; color: var(--text);
+    background: var(--surface2); padding: 6px 12px; border-radius: var(--radius-sm);
+    margin: 0 auto 12px; width: fit-content;
+    border: 0.5px solid var(--border);
+  }
+
+  table.breakdown {
+    width: 100%; border-collapse: collapse; font-size: 13px;
+  }
+  table.breakdown th {
+    text-align: left; font-size: 11px; font-weight: 600;
+    color: var(--text2); padding: 4px 6px 8px;
+    border-bottom: 0.5px solid var(--border2);
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+  table.breakdown td {
+    padding: 6px 6px; border-bottom: 0.5px solid var(--border);
+  }
+  table.breakdown tr:last-child td { border-bottom: none; font-weight: 600; }
+  .dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    display: inline-block; margin-right: 7px; flex-shrink: 0;
+  }
+  .legend-row { display: flex; gap: 16px; margin-bottom: 6px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text2); }
+  .legend-swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  #nodata { text-align: center; padding: 3rem 1rem; }
+  #nodata .nodata-icon { font-size: 40px; display: block; margin-bottom: 10px; }
+  #nodata p { color: var(--text2); margin-bottom: 12px; }
+  .demo-note {
+    font-size: 12px; color: var(--text3);
+    padding: 6px 0 0; text-align: center;
+  }
+  @media (max-width: 540px) {
+    .grid-2 { grid-template-columns: 1fr; }
+    .metric-grid { grid-template-columns: 1fr 1fr; }
+    .header { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div>
+      <h1>⚡ Áramfogyasztás kalkulátor</h1>
+      <p>E.ON ÖkoStrom Basis &nbsp;·&nbsp; Netz Niederösterreich &nbsp;·&nbsp; 2026 &nbsp;·&nbsp; 15 perces adatok</p>
+    </div>
+    <span class="badge">E.ON · Netz NÖ · Offline</span>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('upload')">📂 CSV betöltés</button>
+    <button class="tab" onclick="showTab('tariff')">⚙️ Tarifák</button>
+    <button class="tab" onclick="showTab('results')">📊 Eredmények</button>
+  </div>
+
+  <!-- ===== TAB: UPLOAD ===== -->
+  <div id="tab-upload">
+    <div class="upload-area" id="dropZone"
+      onclick="document.getElementById('fileInput').click()"
+      ondragover="event.preventDefault();this.classList.add('dragover')"
+      ondragleave="this.classList.remove('dragover')"
+      ondrop="handleDrop(event)">
+      <span class="upload-icon">📄</span>
+      <div class="upload-title">CSV fájl húzása ide</div>
+      <div class="upload-sub">vagy kattintással tallózz · .csv / .txt</div>
+      <input type="file" id="fileInput" accept=".csv,.txt" onchange="loadFile(this.files[0])">
+    </div>
+
+    <div class="card">
+      <div class="section-label">Elvárt formátum</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:8px">
+        Netz NÖ Smart Meter export – pontosvessző-elválasztott, oszlopfejléces CSV:
+      </p>
+      <div class="code-block">
+        Messzeitpunkt;Verbrauch (kV Qualität<br>
+        01.01.2026 00:15;0,068 L1<br>
+        01.01.2026 00:30;0,067 L1<br>
+        01.01.2026 00:45;0,057 L1
+      </div>
+      <p style="font-size:12px;color:var(--text2)">
+        A <em>Verbrauch</em> oszlopból csak a szám kerül kiolvasásra (kWh). Az „L1" minőségjelző és egyéb szöveg figyelmen kívül marad.
+      </p>
+    </div>
+
+    <div id="loadStatus" style="display:none" class="card">
+      <div class="section-label">Betöltött adatok</div>
+      <div id="loadInfo"></div>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="showTab('results')">Eredmények megtekintése →</button>
+        <button class="btn btn-sm" onclick="document.getElementById('fileInput').click()">Másik fájl</button>
+      </div>
+    </div>
+
+    <div style="margin-top:10px;display:flex;align-items:center;gap:8px">
+      <button class="btn btn-sm" onclick="loadDemo()">🎲 Demó adatok betöltése (2026, 365 nap)</button>
+    </div>
+    <p class="demo-note">A demó adatok egy szimulált éves fogyasztást töltenek be – kipróbálhatod vele az összes funkciót.</p>
+  </div>
+
+  <!-- ===== TAB: TARIFF ===== -->
+  <div id="tab-tariff" style="display:none">
+    <div class="card">
+      <div class="section-label">Energiaár <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3)"> – E.ON ÖkoStrom Basis · Nur Energie · 2026</span></div>
+      <div class="grid-2">
+        <div class="field">
+          <label>Bruttó Arbeitspreis – ct/kWh</label>
+          <input type="number" id="arbeitspreis_brutto" value="28.20" step="0.01" min="0" oninput="syncEffektiv()">
+        </div>
+        <div class="field">
+          <label>Rabatt – %</label>
+          <input type="number" id="rabatt_pct" value="64.80" step="0.01" min="0" max="100" oninput="syncEffektiv()">
+        </div>
+        <div class="field">
+          <label>Effektív Arbeitspreis – ct/kWh <span style="color:var(--text3);font-size:11px">(auto)</span></label>
+          <input type="number" id="ht_price" value="9.93" step="0.01" min="0" oninput="syncFromEffektiv()">
+        </div>
+        <div class="field">
+          <label style="color:var(--text3)">Tarifatípus</label>
+          <div style="padding:7px 10px;background:var(--surface2);border:0.5px solid var(--border);border-radius:var(--radius-sm);font-size:14px;color:var(--text2)">Egységár (Nur Energie)</div>
+          <input type="hidden" id="nt_price" value="9.93">
+          <input type="hidden" id="ht_start" value="0">
+          <input type="hidden" id="ht_end" value="24">
+        </div>
+      </div>
+      <div class="info-note"><span>ℹ️</span> E.ON ÖkoStrom Basis: 28,20 ct/kWh bruttó − 64,80% rabatt = <strong>9,93 ct/kWh effektív</strong>. Ez egy egységáras tarifa (Nur Energie), nincs HT/NT különbség. Preisgarantie: 30.11.2026.</div>
+    </div>
+
+    <div class="card">
+      <div class="section-label">Hálózati díj <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3)"> – Netz NÖ GmbH 2026</span></div>
+      <div class="grid-2">
+        <div class="field">
+          <label>Netzentgelt – ct/kWh (egységár)</label>
+          <input type="number" id="ne_ht" value="10.72" step="0.01" min="0" oninput="document.getElementById('ne_nt').value=this.value">
+          <input type="hidden" id="ne_nt" value="10.72">
+        </div>
+        <div class="field">
+          <label>Grundpreis – €/hó (E.ON)</label>
+          <input type="number" id="grundentgelt_monat" value="5.40" step="0.01" min="0" oninput="syncGrundEv()">
+          <input type="hidden" id="grundentgelt" value="64.80">
+        </div>
+        <div class="field">
+          <label>Grundpreis – €/év (auto)</label>
+          <input type="number" id="grundentgelt_ev" value="64.80" step="0.01" min="0" style="color:var(--text2);background:var(--surface2)" readonly>
+        </div>
+        <div class="field">
+          <label>Egyéb adók / díjak – ct/kWh</label>
+          <input type="number" id="taxes" value="1.50" step="0.01" min="0">
+        </div>
+      </div>
+      <div class="info-note"><span>ℹ️</span> Netz NÖ 2026: 10,72 ct/kWh (+6,9% vs 2025). Forrás: E-Control 2025. december. E.ON Grundpreis: 5,40 €/hó = 64,80 €/év bruttó. A Nur Energie szerződésnél az E.ON csak az energiadíjat számlázza, a hálózati díjat a Netz NÖ külön.</div>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="recalculate();showTab('results')">Újraszámítás és eredmények →</button>
+      <button class="btn" onclick="resetTariff()">⟳ Alapértékek visszaállítása (E.ON 2026)</button>
+    </div>
+  </div>
+
+  <!-- ===== TAB: RESULTS ===== -->
+  <div id="tab-results" style="display:none">
+
+    <div id="nodata">
+      <span class="nodata-icon">📭</span>
+      <p>Nincs betöltött adat.<br>Töltsd fel a CSV fájlt az első fülön.</p>
+      <button class="btn" onclick="showTab('upload')">CSV betöltése</button>
+    </div>
+
+    <div id="results-content" style="display:none">
+
+      <div class="metric-grid" id="summary-cards"></div>
+
+      <div class="card">
+        <div class="chart-header">
+          <div class="section-label" style="margin:0">Fogyasztás és költség</div>
+          <div class="view-tabs">
+            <button class="view-tab active" id="view-day" onclick="setView('day')">Napi</button>
+            <button class="view-tab" id="view-week" onclick="setView('week')">Heti</button>
+            <button class="view-tab" id="view-month" onclick="setView('month')">Havi</button>
+            <button class="view-tab" id="view-year" onclick="setView('year')">Éves</button>
+          </div>
+        </div>
+        <div class="period-nav">
+          <button class="nav-btn" onclick="navPeriod(-1)">‹</button>
+          <span class="period-label" id="period-label">—</span>
+          <button class="nav-btn" onclick="navPeriod(1)">›</button>
+        </div>
+        
+        <div id="period-totals">Nézet összesítő: — kWh | — €</div>
+
+        <div class="legend-row">
+          <div class="legend-item"><div class="legend-swatch" style="background:#378ADD"></div>kWh fogyasztás</div>
+          <div class="legend-item"><div class="legend-swatch" style="background:#1D9E75"></div>Költség (€)</div>
+        </div>
+        <div class="chart-wrap"><canvas id="mainChart" aria-label="Fogyasztás és költség diagram"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="section-label">Teljes időszak – költségbontás</div>
+        <table class="breakdown" id="cost-breakdown-table">
+          <thead>
+            <tr>
+              <th>Tétel</th>
+              <th style="text-align:right">kWh</th>
+              <th style="text-align:right">Összeg</th>
+              <th style="text-align:right">Arány</th>
+            </tr>
+          </thead>
+          <tbody id="cost-breakdown-body"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="section-label">Éves előrejelzés <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3)"> – teljes adat arányában</span></div>
+        <div class="metric-grid" id="forecast-cards"></div>
+        <div class="info-note" style="margin-top:8px"><span>📌</span> Az előrejelzés az aktuálisan betöltött időszakból arányosít. Minél több napnyi adat áll rendelkezésre, annál pontosabb a becslés.</div>
+      </div>
+
+      <div class="card">
+        <div class="section-label">Napi részletezés – táblázat</div>
+        <div style="overflow-x:auto">
+          <table class="breakdown">
+            <thead>
+              <tr>
+                <th>Dátum</th>
+                <th style="text-align:right">Fogyasztás (kWh)</th>
+                <th style="text-align:right">Energiaköltség (€)</th>
+                <th style="text-align:right">Hálózati díj (€)</th>
+                <th style="text-align:right">Összes (€)</th>
+              </tr>
+            </thead>
+            <tbody id="daily-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div style="margin-top:2rem;padding-top:1rem;border-top:0.5px solid var(--border);font-size:11px;color:var(--text3);text-align:center">
+    Áramfogyasztás kalkulátor · E.ON ÖkoStrom Basis · Netz Niederösterreich 2026 · Offline single-file HTML · E.ON Preisgarantie: 30.11.2026
+  </div>
+</div>
+
+<script>
+'use strict';
+
+let parsedData = [];
+let chartInst = null;
+let currentView = 'day';
+let currentIdx = 0;
+
+const DEFAULT_TARIFF = {
+  ht: 9.93, nt: 9.93, ht_start: 0, ht_end: 24,
+  ne_ht: 10.72, ne_nt: 10.72, grund: 64.80, taxes: 1.50,
+  arbeitspreis_brutto: 28.20, rabatt_pct: 64.80
+};
+
+function showTab(t) {
+  ['upload','tariff','results'].forEach(id => {
+    document.getElementById('tab-' + id).style.display = id === t ? '' : 'none';
+  });
+  document.querySelectorAll('.tab').forEach((b, i) => {
+    b.classList.toggle('active', ['upload','tariff','results'][i] === t);
+  });
+  if (t === 'results') renderResults();
+}
+
+function getTariff() {
+  const effektiv = parseFloat(document.getElementById('ht_price').value) || 9.93;
+  const ne = parseFloat(document.getElementById('ne_ht').value) || 10.72;
+  return {
+    ht:       effektiv,
+    nt:       effektiv,
+    ht_start: 0,
+    ht_end:   24,
+    ne_ht:    ne,
+    ne_nt:    ne,
+    grund:    parseFloat(document.getElementById('grundentgelt').value) || 64.80,
+    taxes:    parseFloat(document.getElementById('taxes').value)        || 1.50
+  };
+}
+
+function resetTariff() {
+  const d = DEFAULT_TARIFF;
+  document.getElementById('arbeitspreis_brutto').value = d.arbeitspreis_brutto;
+  document.getElementById('rabatt_pct').value          = d.rabatt_pct;
+  document.getElementById('ht_price').value            = d.ht;
+  document.getElementById('ne_ht').value               = d.ne_ht;
+  document.getElementById('grundentgelt_monat').value  = (d.grund / 12).toFixed(2);
+  document.getElementById('grundentgelt').value        = d.grund;
+  document.getElementById('grundentgelt_ev').value     = d.grund;
+  document.getElementById('taxes').value               = d.taxes;
+}
+
+function syncEffektiv() {
+  const brutto = parseFloat(document.getElementById('arbeitspreis_brutto').value) || 0;
+  const rabatt = parseFloat(document.getElementById('rabatt_pct').value) || 0;
+  const eff = brutto * (1 - rabatt / 100);
+  document.getElementById('ht_price').value  = eff.toFixed(4);
+  document.getElementById('nt_price').value  = eff.toFixed(4);
+}
+
+function syncFromEffektiv() {
+  document.getElementById('nt_price').value = document.getElementById('ht_price').value;
+}
+
+function syncGrundEv() {
+  const m = parseFloat(document.getElementById('grundentgelt_monat').value) || 0;
+  const y = (m * 12).toFixed(2);
+  document.getElementById('grundentgelt').value   = y;
+  document.getElementById('grundentgelt_ev').value = y;
+}
+
+function isHT(h, tf) { return h >= tf.ht_start && h < tf.ht_end; }
+
+function calcCost(kwh, hour, tf) {
+  const ht = isHT(hour, tf);
+  return kwh * ((ht ? tf.ht : tf.nt) + (ht ? tf.ne_ht : tf.ne_nt) + tf.taxes) / 100;
+}
+function calcEnergy(kwh, hour, tf) {
+  return kwh * (isHT(hour, tf) ? tf.ht : tf.nt) / 100;
+}
+function calcNet(kwh, hour, tf) {
+  return kwh * (isHT(hour, tf) ? tf.ne_ht : tf.ne_nt) / 100;
+}
+function calcTax(kwh, tf) {
+  return kwh * tf.taxes / 100;
+}
+
+function parseCSV(text) {
+  const lines = text.trim().split(/\r?\n/);
+  const records = [];
+  for (let i = 1; i < lines.length; i++) {
+    const parts = lines[i].split(';');
+    if (parts.length < 2) continue;
+    const dtStr  = parts[0].trim();
+    const valStr = parts[1].trim().replace(',', '.').split(' ')[0];
+    const kwh    = parseFloat(valStr);
+    if (isNaN(kwh)) continue;
+    const [datePart, timePart] = dtStr.split(' ');
+    if (!datePart || !timePart) continue;
+    const [d, m, y] = datePart.split('.');
+    const [hh, mm]  = timePart.split(':');
+    const dt = new Date(+y, +m - 1, +d, +hh, +(mm||0));
+    if (isNaN(dt.getTime())) continue;
+    records.push({ dt, kwh });
+  }
+  return records.sort((a, b) => a.dt - b.dt);
+}
+
+function loadFile(file) {
+  if (!file) return;
+  const r = new FileReader();
+  r.onload = e => { parsedData = parseCSV(e.target.result); showLoadStatus(file.name); };
+  r.readAsText(file, 'utf-8');
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropZone').classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) loadFile(file);
+}
+
+function showLoadStatus(name) {
+  if (!parsedData.length) { alert('Nem sikerült értelmezni a fájlt. Ellenőrizd a formátumot!'); return; }
+  currentIdx = 0;
+  const days = new Set(parsedData.map(r => r.dt.toDateString())).size;
+  document.getElementById('loadStatus').style.display = '';
+  document.getElementById('loadInfo').innerHTML = `
+    <div class="row"><span class="row-label">Fájl</span><span class="row-value" style="font-size:12px">${name}</span></div>
+    <div class="row"><span class="row-label">Rekordok</span><span class="row-value">${parsedData.length.toLocaleString('hu-HU')}</span></div>
+    <div class="row"><span class="row-label">Napok száma</span><span class="row-value">${days}</span></div>
+    <div class="row"><span class="row-label">Időszak kezdete</span><span class="row-value">${parsedData[0].dt.toLocaleDateString('hu-HU')}</span></div>
+    <div class="row"><span class="row-label">Időszak vége</span><span class="row-value">${parsedData[parsedData.length-1].dt.toLocaleDateString('hu-HU')}</span></div>
+  `;
+}
+
+function loadDemo() {
+  const records = [];
+  const base = new Date(2026, 0, 1, 0, 15, 0);
+  for (let d = 0; d < 365; d++) {
+    for (let h = 0; h < 24; h++) {
+      for (let m = 15; m <= 60; m += 15) {
+        const dt = new Date(base.getTime() + d * 86400000 + (h * 60 + m - 15) * 60000);
+        const isDay = h >= 6 && h < 22;
+        const weekend = (dt.getDay() === 0 || dt.getDay() === 6) ? 1.3 : 1;
+        const base_load = isDay
+          ? 0.10 + Math.random() * 0.45
+          : 0.04 + Math.random() * 0.04;
+        records.push({ dt, kwh: parseFloat((base_load * weekend).toFixed(3)) });
+      }
+    }
+  }
+  parsedData = records;
+  showLoadStatus('demo_2026_365nap.csv');
+}
+
+function recalculate() {
+  if (parsedData.length) renderResults();
+}
+
+function renderResults() {
+  if (!parsedData.length) {
+    document.getElementById('nodata').style.display = '';
+    document.getElementById('results-content').style.display = 'none';
+    return;
+  }
+  document.getElementById('nodata').style.display = 'none';
+  document.getElementById('results-content').style.display = '';
+
+  const tf = getTariff();
+  let totalKwh = 0, totalCost = 0;
+  let energyCostTotal = 0, netCostTotal = 0, taxCostTotal = 0;
+
+  parsedData.forEach(r => {
+    totalKwh  += r.kwh;
+    const c    = calcCost(r.kwh, r.dt.getHours(), tf);
+    totalCost += c;
+    energyCostTotal += calcEnergy(r.kwh, r.dt.getHours(), tf);
+    netCostTotal    += calcNet(r.kwh, r.dt.getHours(), tf);
+    taxCostTotal    += calcTax(r.kwh, tf);
+  });
+
+  const days = new Set(parsedData.map(r => r.dt.toDateString())).size || 1;
+  const grundAnteil = tf.grund * days / 365;
+  const grandTotal = totalCost + grundAnteil;
+
+  // Summary cards
+  document.getElementById('summary-cards').innerHTML = `
+    <div class="metric"><div class="metric-label">Összes fogyasztás</div><div class="metric-value">${totalKwh.toFixed(1)} kWh</div><div class="metric-sub">${days} nap</div></div>
+    <div class="metric"><div class="metric-label">Összes költség</div><div class="metric-value">${grandTotal.toFixed(2)} €</div><div class="metric-sub">alapdíjjal</div></div>
+    <div class="metric"><div class="metric-label">Átlag / nap</div><div class="metric-value">${(totalKwh/days).toFixed(2)} kWh</div><div class="metric-sub">${(grandTotal/days).toFixed(2)} €/nap</div></div>
+    <div class="metric"><div class="metric-label">Átlagár</div><div class="metric-value">${(totalCost/totalKwh*100).toFixed(1)} ct</div><div class="metric-sub">per kWh</div></div>
+  `;
+
+  // Breakdown
+  const pct = v => Math.round(v / grandTotal * 100);
+  document.getElementById('cost-breakdown-body').innerHTML = `
+    <tr><td><span class="dot" style="background:#378ADD"></span>Energiaár (E.ON ÖkoStrom)</td><td style="text-align:right">${totalKwh.toFixed(1)}</td><td style="text-align:right">${energyCostTotal.toFixed(2)} €</td><td style="text-align:right">${pct(energyCostTotal)}%</td></tr>
+    <tr><td><span class="dot" style="background:#1D9E75"></span>Hálózati díj (Netz NÖ)</td><td style="text-align:right">${totalKwh.toFixed(1)}</td><td style="text-align:right">${netCostTotal.toFixed(2)} €</td><td style="text-align:right">${pct(netCostTotal)}%</td></tr>
+    <tr><td><span class="dot" style="background:#EF9F27"></span>Adók és egyéb díjak</td><td style="text-align:right">${totalKwh.toFixed(1)}</td><td style="text-align:right">${taxCostTotal.toFixed(2)} €</td><td style="text-align:right">${pct(taxCostTotal)}%</td></tr>
+    <tr><td><span class="dot" style="background:#888780"></span>Grundentgelt (időar.)</td><td style="text-align:right">—</td><td style="text-align:right">${grundAnteil.toFixed(2)} €</td><td style="text-align:right">${pct(grundAnteil)}%</td></tr>
+    <tr><td><strong>Összesen</strong></td><td style="text-align:right"><strong>${totalKwh.toFixed(1)}</strong></td><td style="text-align:right"><strong>${grandTotal.toFixed(2)} €</strong></td><td style="text-align:right"><strong>100%</strong></td></tr>
+  `;
+
+  // Forecast
+  const annKwh = (totalKwh / days) * 365;
+  const annEnergyCost = (energyCostTotal / days) * 365;
+  const annNetTaxCost = ((netCostTotal + taxCostTotal) / days) * 365;
+  const annTotalCost = annEnergyCost + annNetTaxCost + tf.grund;
+
+  document.getElementById('forecast-cards').innerHTML = `
+    <div class="metric"><div class="metric-label">Várható éves fogyasztás</div><div class="metric-value">${Math.round(annKwh).toLocaleString('hu-HU')} kWh</div><div class="metric-sub">~${(annKwh/12).toFixed(0)} kWh/hó</div></div>
+    <div class="metric"><div class="metric-label">Várható energiaköltség</div><div class="metric-value">${annEnergyCost.toFixed(2)} €</div><div class="metric-sub">E.ON (alapdíj nélkül)</div></div>
+    <div class="metric"><div class="metric-label">Várható hálózati díj</div><div class="metric-value">${annNetTaxCost.toFixed(2)} €</div><div class="metric-sub">Netz NÖ + Adók</div></div>
+    <div class="metric"><div class="metric-label">Várható összes költség</div><div class="metric-value" style="color:var(--blue)">${annTotalCost.toFixed(2)} €</div><div class="metric-sub">Alapdíjjal (${tf.grund.toFixed(2)} €) együtt</div></div>
+  `;
+
+  // Daily table
+  const byDay = {};
+  parsedData.forEach(r => {
+    const key = r.dt.toDateString();
+    if (!byDay[key]) byDay[key] = { dt: r.dt, kwh: 0, eCost: 0, nCost: 0 };
+    byDay[key].kwh   += r.kwh;
+    byDay[key].eCost += calcEnergy(r.kwh, r.dt.getHours(), tf);
+    byDay[key].nCost += calcNet(r.kwh, r.dt.getHours(), tf) + calcTax(r.kwh, tf);
+  });
+  const dailyRows = Object.values(byDay).sort((a,b) => a.dt - b.dt);
+  document.getElementById('daily-table-body').innerHTML = dailyRows.map(d => `
+    <tr>
+      <td>${d.dt.toLocaleDateString('hu-HU')}</td>
+      <td style="text-align:right">${d.kwh.toFixed(3)}</td>
+      <td style="text-align:right">${d.eCost.toFixed(4)}</td>
+      <td style="text-align:right">${d.nCost.toFixed(4)}</td>
+      <td style="text-align:right"><strong>${(d.eCost + d.nCost).toFixed(4)}</strong></td>
+    </tr>
+  `).join('');
+
+  renderChart();
+}
+
+function setView(v) {
+  currentView = v;
+  currentIdx  = 0;
+  ['day','week','month','year'].forEach(x => {
+    const btn = document.getElementById('view-' + x);
+    if(btn) btn.classList.toggle('active', x === v);
+  });
+  renderChart();
+}
+
+function navPeriod(dir) {
+  currentIdx += dir;
+  renderChart();
+}
+
+function groupByPeriod(view, idx) {
+  if (!parsedData.length) return { labels: [], kwh: [], cost: [], label: '—' };
+  const tf = getTariff();
+
+  if (view === 'day') {
+    const days = [...new Set(parsedData.map(r => r.dt.toDateString()))].sort((a,b) => new Date(a) - new Date(b));
+    currentIdx = Math.max(0, Math.min(idx, days.length - 1));
+    const day  = days[currentIdx];
+    const recs = parsedData.filter(r => r.dt.toDateString() === day);
+    return {
+      labels: recs.map(r => pad(r.dt.getHours()) + ':' + pad(r.dt.getMinutes())),
+      kwh:    recs.map(r => r.kwh),
+      cost:   recs.map(r => +calcCost(r.kwh, r.dt.getHours(), tf).toFixed(5)),
+      label:  new Date(day).toLocaleDateString('hu-HU')
+    };
+  }
+
+  if (view === 'week') {
+    const getWeekStart = d => { const s = new Date(d); s.setHours(0,0,0,0); s.setDate(s.getDate() - ((s.getDay() + 6) % 7)); return s.toDateString(); };
+    const weeks = [...new Set(parsedData.map(r => getWeekStart(r.dt)))].sort((a,b) => new Date(a) - new Date(b));
+    currentIdx = Math.max(0, Math.min(idx, weeks.length - 1));
+    const week = weeks[currentIdx];
+    const g = Array(7).fill(0), gc = Array(7).fill(0);
+    parsedData.filter(r => getWeekStart(r.dt) === week).forEach(r => {
+      const dow = (r.dt.getDay() + 6) % 7;
+      g[dow]  += r.kwh;
+      gc[dow] += calcCost(r.kwh, r.dt.getHours(), tf);
+    });
+    const wS = new Date(week), wE = new Date(wS.getTime() + 6 * 86400000);
+    return {
+      labels: ['H','K','Sze','Cs','P','Szo','V'],
+      kwh: g, cost: gc.map(c => +c.toFixed(4)),
+      label: wS.toLocaleDateString('hu-HU') + ' – ' + wE.toLocaleDateString('hu-HU')
+    };
+  }
+
+  if (view === 'month') {
+    const months = [...new Set(parsedData.map(r => r.dt.getFullYear() + '-' + r.dt.getMonth()))].sort();
+    currentIdx = Math.max(0, Math.min(idx, months.length - 1));
+    const [y, m] = months[currentIdx].split('-').map(Number);
+    const dim = new Date(y, m + 1, 0).getDate();
+    const g = Array(dim).fill(0), gc = Array(dim).fill(0);
+    parsedData.filter(r => r.dt.getFullYear() === y && r.dt.getMonth() === m).forEach(r => {
+      const di = r.dt.getDate() - 1;
+      g[di]  += r.kwh;
+      gc[di] += calcCost(r.kwh, r.dt.getHours(), tf);
+    });
+    const mN = ['Január','Február','Március','Április','Május','Június','Július','Augusztus','Szeptember','Október','November','December'];
+    return {
+      labels: Array.from({length: dim}, (_,i) => String(i+1)),
+      kwh: g, cost: gc.map(c => +c.toFixed(4)),
+      label: mN[m] + ' ' + y
+    };
+  }
+  
+  if (view === 'year') {
+    const years = [...new Set(parsedData.map(r => r.dt.getFullYear()))].sort();
+    currentIdx = Math.max(0, Math.min(idx, years.length - 1));
+    const y = parseInt(years[currentIdx]);
+    const g = Array(12).fill(0), gc = Array(12).fill(0);
+    parsedData.filter(r => r.dt.getFullYear() === y).forEach(r => {
+      const mi = r.dt.getMonth();
+      g[mi]  += r.kwh;
+      gc[mi] += calcCost(r.kwh, r.dt.getHours(), tf);
+    });
+    const mN = ['Jan','Feb','Már','Ápr','Máj','Jún','Júl','Aug','Szep','Okt','Nov','Dec'];
+    return {
+      labels: mN,
+      kwh: g, cost: gc.map(c => +c.toFixed(4)),
+      label: y + '. év'
+    };
+  }
+}
+
+function pad(n) { return String(n).padStart(2, '0'); }
+
+function renderChart() {
+  const { labels, kwh, cost, label } = groupByPeriod(currentView, currentIdx);
+  document.getElementById('period-label').textContent = label;
+
+  // Összesítő sáv frissítése a jelenlegi adatok alapján
+  const sumKwh = kwh.reduce((a, b) => a + b, 0);
+  const sumCost = cost.reduce((a, b) => a + b, 0);
+  document.getElementById('period-totals').innerHTML = `Összesen az aktuális nézeten: <strong>${sumKwh.toFixed(1)} kWh</strong> &nbsp;|&nbsp; <strong>${sumCost.toFixed(2)} €</strong>`;
+
+  const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const textColor  = isDark ? '#9a9990' : '#666';
+  const gridColor  = isDark ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.06)';
+
+  const ctx = document.getElementById('mainChart').getContext('2d');
+  if (chartInst) chartInst.destroy();
+
+  chartInst = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'kWh fogyasztás', data: kwh, yAxisID: 'y', order: 2,
+          backgroundColor: 'rgba(55,138,221,0.55)',
+          borderColor: 'rgba(55,138,221,.85)',
+          borderWidth: 1
+        },
+        {
+          label: 'Költség (€)', data: cost, type: 'line', yAxisID: 'y2', order: 1,
+          borderColor: '#1D9E75', backgroundColor: 'rgba(29,158,117,.12)',
+          fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ctx.datasetIndex === 0
+              ? 'Fogyasztás: ' + ctx.raw.toFixed(currentView === 'day' ? 3 : 2) + ' kWh'
+              : 'Költség: ' + ctx.raw.toFixed(currentView === 'day' ? 4 : 2) + ' €'
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: textColor, font: { size: 11 }, maxRotation: currentView === 'day' ? 45 : 0, autoSkip: true, maxTicksLimit: currentView === 'day' ? 12 : 31 },
+          grid: { color: gridColor }
+        },
+        y: {
+          position: 'left',
+          title: { display: true, text: 'kWh', color: textColor, font: { size: 11 } },
+          ticks: { color: textColor, font: { size: 11 }, callback: v => v.toFixed(currentView === 'day' ? 3 : 1) },
+          grid: { color: gridColor }
+        },
+        y2: {
+          position: 'right',
+          title: { display: true, text: 'Költség (€)', color: '#1D9E75', font: { size: 11 } },
+          ticks: { color: '#1D9E75', font: { size: 11 }, callback: v => v.toFixed(currentView === 'day' ? 4 : 2) + ' €' },
+          grid: { display: false }
+        }
+      }
+    }
+  });
+}
+</script>
+</body>
+</html>
